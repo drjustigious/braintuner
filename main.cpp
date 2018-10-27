@@ -31,7 +31,7 @@ int main()
 
     BrainSpectrum spectrum;
     std::vector<double> powerSpectrum, frequencies;
-
+    std::size_t bufferSize;
 
     // Run SFML GUI
     while (window.isOpen())
@@ -52,10 +52,17 @@ int main()
         }
         */
 
-        if (recorder.getBufferSize() > 1024) {
-            powerSpectrum = recorder.getPowerSpectrum(1024);
-            frequencies = recorder.getFrequencies( powerSpectrum.size() );
-            spectrum.updateSpectrum(frequencies, powerSpectrum);
+        bufferSize = recorder.getBufferSize();
+        if (bufferSize > 2*spectrum.NUM_CHANNELS_ANALYZED) {
+            if ( bufferSize > 2*recorder.getSampleRate() ) {
+                std::cout << "Recorder buffer size too large: " << recorder.getBufferSize() << std::endl;
+                recorder.clearBuffer();
+            }
+            else {
+                powerSpectrum = recorder.getPowerSpectrum(2*spectrum.NUM_CHANNELS_ANALYZED);
+                frequencies = recorder.getFrequencies( powerSpectrum.size() );
+                spectrum.updateSpectrum(frequencies, powerSpectrum);
+            }
         }
 
         window.clear();
