@@ -98,5 +98,50 @@ void BrainSpectrum::loadNewSpectrum(std::vector<double> frequencies, std::vector
 
 
     // Analyze the spectrum for strong lines
-    // (TODO)
+    this->analysisPeriodCounter++;
+    if (this->analysisPeriodCounter > ANALYSIS_PERIOD) {
+        this->analysisPeriodCounter = 0;
+
+        std::cout << "Analyzing..." << std::endl;
+
+        // Collect the actual signal portion to be analyzed
+        this->analyzedSignal.clear();
+        this->analyzedFrequencies.clear();
+        for (size_t i = numPoints/2; i < numPoints; i++) {
+            if (frequencies[i] >= minAnalyzedFrequency && frequencies[i] <= maxAnalyzedFrequency)
+                this->analyzedSignal.push_back(magnitudes[i]);
+                this->analyzedFrequencies.push_back(frequencies[i]);
+        }
+
+        // The above guarantees that this->analyzedSignal and this->analyzedFrequencies nowhave equal sizes
+        // Scan for the N strongest peaks in the signal
+        std::vector<double>::iterator strongestSignalElement;
+        std::vector<double>::iterator firstRemovedElement;
+        std::vector<double>::iterator lastRemovedElement;
+        std::size_t firstRemovedIndex;
+        std::size_t lastRemovedIndex;
+
+        for (unsigned int i = 0; i < numAnalyzedNotes; i++) {
+            // Find the current absolute maximum
+            strongestSignalElement = std::max_element( this->analyzedSignal.begin(), this->analyzedSignal.end() );
+
+            unsigned int strongestElementIndex = strongestSignalElement-this->analyzedSignal.begin();
+            std::cout << "Strong index " << strongestElementIndex << std::endl;
+            std::cout << "Strong signal at " << this->analyzedFrequencies[strongestElementIndex] << " Hz" << std::endl;
+
+            // Disregard data close to the found maximum (may be from same signal peak)
+            firstRemovedElement = strongestSignalElement-this->analysisMaskRadius;
+            if (firstRemovedElement < this->analyzedSignal.begin())
+                firstRemovedElement = this->analyzedSignal.begin();
+                firstRemovedIndex = firstRemovedElement-this->analyzedSignal.begin();
+
+            lastRemovedElement = strongestSignalElement+this->analysisMaskRadius;
+            if (lastRemovedElement > this->analyzedSignal.end())
+                lastRemovedElement = this->analyzedSignal.end();
+                lastRemovedIndex = lastRemovedElement-this->analyzedSignal.begin();
+
+            this->analyzedSignal.erase(firstRemovedElement, lastRemovedElement);
+            this->analyzedFrequencies.erase(this->analyzedFrequencies.begin()+firstRemovedIndex, this->analyzedFrequencies.begin()+lastRemovedIndex);
+        }
+    }
 }

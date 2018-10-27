@@ -4,8 +4,8 @@
 namespace BrainConfig {
 
 const unsigned int FRAME_RATE = 60;
-const unsigned int INITIAL_WINDOW_WIDTH = 1024;
-const unsigned int INITIAL_WINDOW_HEIGHT = 768;
+const unsigned int INITIAL_WINDOW_WIDTH = 512;
+const unsigned int INITIAL_WINDOW_HEIGHT = 256;
 
 } // namespace BrainConfig
 
