@@ -82,7 +82,8 @@ std::vector<double> BrainRecorder::getPowerSpectrum(std::size_t numSamples) {
 
     for (size_t i = 0; i < complexBuffer.size(); i++) {
         magnitude = std::abs(complexBuffer[i]);
-        powerSpectrum.push_back( log10(magnitude*magnitude) );
+        //powerSpectrum.push_back( log10(magnitude*magnitude) );
+        powerSpectrum.push_back( abs(magnitude) );
     }
 
     return powerSpectrum;
@@ -98,7 +99,7 @@ std::vector<double> BrainRecorder::getFrequencies(std::size_t numSamples) {
     double scalingFactor = sampleRate / (double)numSamples;
 
     for (size_t i = 0; i < numSamples; i++) {
-        frequencies.push_back(i*scalingFactor - sampleRate/2);
+        frequencies.push_back(sampleRate - i*scalingFactor);
     }
 
     return frequencies;
