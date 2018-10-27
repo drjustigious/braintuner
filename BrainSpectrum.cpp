@@ -12,11 +12,33 @@ BrainSpectrum::BrainSpectrum() {
     for (unsigned int i = 0; i < NUM_SPECTRUM_BINS; i++) {
         sf::RectangleShape* rect = new sf::RectangleShape( sf::Vector2f(rectWidth, SPECTRUM_HEIGHT*INITIAL_SIGNAL) );
 
-        rect->setPosition( sf::Vector2f(i*rectWidth, 0.0) );
+        rect->setPosition( SPECTRUM_POSITION+sf::Vector2f(SPECTRUM_WIDTH-(i+1)*rectWidth, SPECTRUM_HEIGHT*(1-INITIAL_SIGNAL)) );
         rect->setFillColor(sf::Color::Red);
         rect->setOutlineThickness(0.0);
 
         this->spectrumShapes.push_back(rect);
+    }
+}
+
+
+void BrainSpectrum::update(float dt) {
+    // Perform UI logic and advance animations
+
+    // Update the drawn spectrum if data is available
+    if (binSignals.size() > 0) {
+        double maxBinSignal = *std::max_element( this->binSignals.begin(), this->binSignals.end() ); // Scale the drawn signal based on the maximum bin value
+        const float rectWidth = SPECTRUM_WIDTH/NUM_SPECTRUM_BINS;
+        float oldHeight, newHeight;
+
+        for (unsigned int i = 0; i < NUM_SPECTRUM_BINS; i++) {
+            // Apply first-order low pass filter to height
+            oldHeight = this->spectrumShapes[i]->getSize().y;
+            newHeight = oldHeight + (this->binSignals[i]/maxBinSignal*SPECTRUM_HEIGHT - oldHeight) / RENDER_FILTER_TIME_CONSTANT;
+            this->spectrumShapes[i]->setSize( sf::Vector2f(rectWidth, newHeight) );
+
+            // Keep spectrum at the bottom of the given window
+            this->spectrumShapes[i]->setPosition( SPECTRUM_POSITION+sf::Vector2f(SPECTRUM_WIDTH-(i+1)*rectWidth, (SPECTRUM_HEIGHT-newHeight)) );
+        }
     }
 }
 
@@ -30,7 +52,7 @@ void BrainSpectrum::draw(sf::RenderWindow &window) {
 }
 
 
-void BrainSpectrum::updateSpectrum(std::vector<double> frequencies, std::vector<double> magnitudes) {
+void BrainSpectrum::loadNewSpectrum(std::vector<double> frequencies, std::vector<double> magnitudes) {
     // Takes a zero-symmetric vector of frequencies and corresponding FFT magnitudes and constructs
     // the positive frequency side of the spectrum out of lines. The vectors are assumed to be
     // identical in size.
@@ -39,27 +61,13 @@ void BrainSpectrum::updateSpectrum(std::vector<double> frequencies, std::vector<
     assert( numPoints == 2*NUM_CHANNELS_ANALYZED );
     assert( frequencies.size() == numPoints );
 
-    /*
-    this->spectrumLines.clear();
-    unsigned int channelIndex = 0;
-
-    // Only process the data at positive frequencies
-    for (std::size_t i = numPoints/2; i < numPoints; i++) {
-        //std::cout << frequencies[i] << "  " << magnitudes[i] << std::endl;
-
-        this->spectrumLines.append( sf::Vertex(sf::Vector2f(channelIndex, magnitudes[i]), sf::Color::White) );
-        this->spectrumLines.append( sf::Vertex(sf::Vector2f(channelIndex, 0), sf::Color::Red) );
-
-        channelIndex++;
-    }
-
-    //std::cout << "Vertices in spectrumLines: " << spectrumLines.getVertexCount() << std::endl;
-    */
-
     std::vector<double> binChannels; // store the subvector of magnitudes corresponding to the current bin
     std::vector<double>::const_iterator startOfBin = magnitudes.begin()+numPoints/2; // Only process the data at positive frequencies
 
-    std::vector<double> binSignals; // stores the signals of processed bins
+    double binBottomFrequency;
+    double binTopFrequency;
+
+    this->binSignals.clear();
 
     // Binning logic
     for (unsigned int i = 0; i < NUM_SPECTRUM_BINS; i++) {
@@ -70,22 +78,24 @@ void BrainSpectrum::updateSpectrum(std::vector<double> frequencies, std::vector<
             case MEDIAN: {
                 // Take the median of binChannels (slightly obscure but fast implementation)
                 std::nth_element( binChannels.begin(), binChannels.begin()+CHANNELS_PER_BIN/2, binChannels.end() );
-                binSignals.push_back( binChannels[CHANNELS_PER_BIN/2] );
+                this->binSignals.push_back( binChannels[CHANNELS_PER_BIN/2] );
             }
             case MAXIMUM: {
                 // Take the maximum of binChannels
-                binSignals.push_back( *std::max_element(binChannels.begin(), binChannels.end()) );
+                this->binSignals.push_back( *std::max_element(binChannels.begin(), binChannels.end()) );
             }
         }
+
+        // Update spectrum line colors to indicate the active analysis region
+        binBottomFrequency = frequencies[numPoints/2 + i*CHANNELS_PER_BIN];
+        binTopFrequency = frequencies[numPoints/2 + (i+1)*CHANNELS_PER_BIN-1];
+
+        if (binTopFrequency >= minAnalyzedFrequency && binBottomFrequency <= maxAnalyzedFrequency)
+            this->spectrumShapes[i]->setFillColor(ACTIVE_SPECTRUM_COLOR);
+        else
+            this->spectrumShapes[i]->setFillColor(INACTIVE_SPECTRUM_COLOR);
     }
 
-    // Update the drawn spectrum
-    double maxBinSignal = *std::max_element( binSignals.begin(), binSignals.end() ); // Scale the drawn signal based on the maximum bin value
-    const float rectWidth = SPECTRUM_WIDTH/NUM_SPECTRUM_BINS;
-
-    for (unsigned int i = 0; i < NUM_SPECTRUM_BINS; i++) {
-        this->spectrumShapes[i]->setSize( sf::Vector2f(rectWidth, binSignals[i]/maxBinSignal*SPECTRUM_HEIGHT) );
-    }
 
     // Analyze the spectrum for strong lines
     // (TODO)

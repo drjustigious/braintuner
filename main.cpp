@@ -5,6 +5,7 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
 
+#include "BrainConfig.hpp"
 #include "BrainRecorder.hpp"
 #include "BrainSpectrum.hpp"
 #include "FFT.hpp"
@@ -13,8 +14,8 @@
 int main()
 {
     // Initialize SFML GUI
-    sf::RenderWindow window(sf::VideoMode(512, 768), "FFT works!");
-
+    sf::RenderWindow window(sf::VideoMode(BrainConfig::INITIAL_WINDOW_WIDTH, BrainConfig::INITIAL_WINDOW_HEIGHT), "FFT works!");
+    window.setFramerateLimit(BrainConfig::FRAME_RATE);
 
     if (!BrainRecorder::isAvailable()) {
         // error: audio capture is not available on this system
@@ -43,14 +44,7 @@ int main()
                 window.close();
         }
 
-        /*
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left))
-        {
-            powerSpectrum = recorder.getPowerSpectrum(4096);
-            frequencies = recorder.getFrequencies( powerSpectrum.size() );
-            spectrum.updateSpectrum(frequencies, powerSpectrum);
-        }
-        */
+        spectrum.update(1.0/(float)BrainConfig::FRAME_RATE);
 
         bufferSize = recorder.getBufferSize();
         if (bufferSize > 2*spectrum.NUM_CHANNELS_ANALYZED) {
@@ -61,7 +55,7 @@ int main()
             else {
                 powerSpectrum = recorder.getPowerSpectrum(2*spectrum.NUM_CHANNELS_ANALYZED);
                 frequencies = recorder.getFrequencies( powerSpectrum.size() );
-                spectrum.updateSpectrum(frequencies, powerSpectrum);
+                spectrum.loadNewSpectrum(frequencies, powerSpectrum);
             }
         }
 
