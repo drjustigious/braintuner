@@ -32,6 +32,9 @@ class BrainRecorder : public sf::SoundRecorder {
         std::vector<sf::Int16> buffer;
         std::size_t bufferSize;
         sf::Mutex recorderMutex; // Used to prevent concurrent access to the audio record buffer
+
+        enum spectrumScaling {LINEAR, SQRT, LOG};
+        spectrumScaling SPECTRUM_SCALING = SQRT;
 };
 
 #endif /* BRAIN_RECORDER_HPP */

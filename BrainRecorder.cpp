@@ -82,8 +82,21 @@ std::vector<double> BrainRecorder::getPowerSpectrum(std::size_t numSamples) {
 
     for (size_t i = 0; i < complexBuffer.size(); i++) {
         magnitude = std::abs(complexBuffer[i]);
-        //powerSpectrum.push_back( log10(magnitude*magnitude) );
-        powerSpectrum.push_back( abs(magnitude) );
+
+        switch (SPECTRUM_SCALING) {
+            case LINEAR: {
+                powerSpectrum.push_back( magnitude );
+                break;
+            }
+            case SQRT: {
+                powerSpectrum.push_back( sqrt(magnitude) );
+                break;
+            }
+            case LOG: {
+                powerSpectrum.push_back( log10(magnitude) );
+                break;
+            }
+        }
     }
 
     return powerSpectrum;
