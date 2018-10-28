@@ -13,14 +13,14 @@ BrainSpectrum::BrainSpectrum() {
         sf::RectangleShape* rect = new sf::RectangleShape( sf::Vector2f(rectWidth, SPECTRUM_HEIGHT*INITIAL_SIGNAL) );
 
         rect->setPosition( SPECTRUM_POSITION+sf::Vector2f(SPECTRUM_WIDTH-(i+1)*rectWidth, SPECTRUM_HEIGHT*(1-INITIAL_SIGNAL)) );
-        rect->setFillColor(sf::Color::Black);
+        rect->setFillColor(sf::Color::White);
         rect->setOutlineThickness(0.0);
 
         this->spectrumShapes.push_back(rect);
     }
 
     // create the noise level indicator
-    this->noiseIndicatorShape.setFillColor( sf::Color(255,63,63,127) );
+    this->noiseIndicatorShape.setFillColor( NOISE_INDICATOR_COLOR );
     this->noiseIndicatorShape.setOutlineThickness(0);
     this->noiseIndicatorShape.setSize( sf::Vector2f(SPECTRUM_WIDTH+2*NOISE_LEVEL_OVERSHOOT, 1) );
     this->noiseIndicatorShape.setPosition( SPECTRUM_POSITION+sf::Vector2f(-NOISE_LEVEL_OVERSHOOT, SPECTRUM_HEIGHT*(1-INITIAL_SIGNAL)) );
@@ -36,6 +36,13 @@ BrainSpectrum::BrainSpectrum() {
         this->noteFrequencies[i] = -1.0;
         this->noteIntensities[i] = 0.0;
     }
+
+    // configure the containers shapes
+    this->spectrumContainerShape.setSize( sf::Vector2f(SPECTRUM_WIDTH+2*SPECTRUM_CONTAINER_PAD, SPECTRUM_HEIGHT+2*SPECTRUM_CONTAINER_PAD) );
+    this->spectrumContainerShape.setPosition( SPECTRUM_POSITION - sf::Vector2f(SPECTRUM_CONTAINER_PAD, SPECTRUM_CONTAINER_PAD) );
+    this->spectrumContainerShape.setOutlineThickness( CONTAINER_OUTLINE_THICKNESS );
+    this->spectrumContainerShape.setFillColor( CONTAINER_FILL_COLOR );
+    this->spectrumContainerShape.setOutlineColor( CONTAINER_OUTLINE_COLOR );
 }
 
 
@@ -61,23 +68,27 @@ void BrainSpectrum::update(float dt) {
 
         // Noise level indicator
         oldHeight = this->noiseIndicatorShape.getPosition().y;
-        newHeight = oldHeight + (SPECTRUM_HEIGHT-1-this->noiseLevel/maxBinSignal*SPECTRUM_HEIGHT - oldHeight) / NOISE_RENDER_FILTER_TIME_CONSTANT;
-        this->noiseIndicatorShape.setPosition( SPECTRUM_POSITION+sf::Vector2f(-NOISE_LEVEL_OVERSHOOT, newHeight) );
+        newHeight = oldHeight + (SPECTRUM_POSITION.y + SPECTRUM_HEIGHT-1-this->noiseLevel/maxBinSignal*SPECTRUM_HEIGHT - oldHeight) / NOISE_RENDER_FILTER_TIME_CONSTANT;
+        //std::cout << "newHeight = " << newHeight << std::endl;
+        this->noiseIndicatorShape.setPosition( sf::Vector2f(SPECTRUM_POSITION.x-NOISE_LEVEL_OVERSHOOT, newHeight) );
     }
 
     // Note indicators
     double oldX, newX;
     for (size_t i = 0; i < this->noteShapes.size(); i++) {
         oldX = this->noteShapes[i]->getPosition().x;
-        newX = this->noteFrequencies[i]/this->maxLoadedFrequency*SPECTRUM_WIDTH-NOTE_INDICATOR_WIDTH/2;
+        newX = SPECTRUM_POSITION.x + this->noteFrequencies[i]/this->maxLoadedFrequency*SPECTRUM_WIDTH-NOTE_INDICATOR_WIDTH/2;
         newX = oldX + (newX-oldX)/NOTE_INDICATOR_FILTER_TIME_CONSTANT;
-        this->noteShapes[i]->setPosition( SPECTRUM_POSITION+sf::Vector2f(newX, SPECTRUM_HEIGHT-NOTE_INDICATOR_HEIGHT) );
+        this->noteShapes[i]->setPosition( sf::Vector2f(newX, SPECTRUM_POSITION.y+SPECTRUM_HEIGHT-NOTE_INDICATOR_HEIGHT) );
     }
 }
 
 
 void BrainSpectrum::draw(sf::RenderWindow &window) {
     // Draw the spectrum analyzer
+
+    // Containers
+    window.draw(this->spectrumContainerShape);
 
     // Analyzed note indicators
     for (std::size_t i = 0; i < this->noteShapes.size(); i++) {
@@ -212,15 +223,19 @@ void BrainSpectrum::loadNewSpectrum(std::vector<double> frequencies, std::vector
                     sumSignals += peakSignals[j];
                 }
 
-                centerFrequency = sumWeightedFrequencies/sumSignals;
-                this->noteFrequencies[i] = centerFrequency;
-
                 // calculate the peak intensity in decibels over noise
                 noteIntensity = sumSignals/(2*analysisMaskRadius)/this->noiseLevel;
                 noteIntensity = 10*log10(noteIntensity); // signals were already converted to intensities
 
                 this->noteIntensities[i] = noteIntensity;
-                std::cout << "Strong peak at " << centerFrequency << " Hz, SNR = " << noteIntensity << " dB" << std::endl;
+                if (noteIntensity >= minimumNoteSNR) {
+                    centerFrequency = sumWeightedFrequencies/sumSignals;
+                    this->noteFrequencies[i] = centerFrequency;
+                    std::cout << "Strong peak at " << centerFrequency << " Hz, SNR = " << noteIntensity << " dB" << std::endl;
+                }
+                else {
+                    this->noteFrequencies[i] = -1.0;
+                }
             }
         }
 

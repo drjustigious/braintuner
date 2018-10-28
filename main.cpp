@@ -10,6 +10,8 @@
 #include "BrainSpectrum.hpp"
 #include "FFT.hpp"
 
+const sf::Color BACKGROUND_COLOR = sf::Color(16,24,32,255);
+
 
 int main()
 {
@@ -40,8 +42,22 @@ int main()
         sf::Event event;
         while (window.pollEvent(event))
         {
-            if (event.type == sf::Event::Closed)
-                window.close();
+            switch (event.type) {
+                case sf::Event::Closed: {
+                    // The "close window" button was clicked.
+                    window.close();
+                    break;
+                }
+                case sf::Event::Resized: {
+                    // The window was resized. Enforce 4:3 aspect ratio and minimum size.
+                    unsigned int newHeight = std::max(event.size.height, BrainConfig::MINIMUM_WINDOW_HEIGHT);
+                    window.setSize( sf::Vector2u(newHeight*4/3, newHeight) );
+                    break;
+                }
+                default: {
+                    break;
+                }
+            }
         }
 
         spectrum.update(1.0/(float)BrainConfig::FRAME_RATE);
@@ -59,7 +75,7 @@ int main()
             }
         }
 
-        window.clear();
+        window.clear(BACKGROUND_COLOR);
         spectrum.draw(window);
         window.display();
     }
