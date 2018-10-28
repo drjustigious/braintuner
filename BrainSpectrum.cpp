@@ -13,7 +13,7 @@ BrainSpectrum::BrainSpectrum() {
         sf::RectangleShape* rect = new sf::RectangleShape( sf::Vector2f(rectWidth, SPECTRUM_HEIGHT*INITIAL_SIGNAL) );
 
         rect->setPosition( SPECTRUM_POSITION+sf::Vector2f(SPECTRUM_WIDTH-(i+1)*rectWidth, SPECTRUM_HEIGHT*(1-INITIAL_SIGNAL)) );
-        rect->setFillColor(sf::Color::Red);
+        rect->setFillColor(sf::Color::Black);
         rect->setOutlineThickness(0.0);
 
         this->spectrumShapes.push_back(rect);
@@ -24,6 +24,18 @@ BrainSpectrum::BrainSpectrum() {
     this->noiseIndicatorShape.setOutlineThickness(0);
     this->noiseIndicatorShape.setSize( sf::Vector2f(SPECTRUM_WIDTH+2*NOISE_LEVEL_OVERSHOOT, 1) );
     this->noiseIndicatorShape.setPosition( SPECTRUM_POSITION+sf::Vector2f(-NOISE_LEVEL_OVERSHOOT, SPECTRUM_HEIGHT*(1-INITIAL_SIGNAL)) );
+
+    // create the analyzed note indicators
+    for (unsigned i = 0; i < NUM_ANALYZED_NOTES; i++) {
+        sf::RectangleShape* rect = new sf::RectangleShape( sf::Vector2f(NOTE_INDICATOR_WIDTH, NOTE_INDICATOR_HEIGHT+NOTE_INDICATOR_HANG) );
+        rect->setPosition( SPECTRUM_POSITION+sf::Vector2f(8+i*8, SPECTRUM_HEIGHT-NOTE_INDICATOR_HEIGHT) );
+        rect->setFillColor(NOTE_INDICATOR_COLOR);
+        rect->setOutlineThickness(0.0);
+        this->noteShapes.push_back(rect);
+
+        this->noteFrequencies[i] = -1.0;
+        this->noteIntensities[i] = 0.0;
+    }
 }
 
 
@@ -50,18 +62,35 @@ void BrainSpectrum::update(float dt) {
         // Noise level indicator
         oldHeight = this->noiseIndicatorShape.getPosition().y;
         newHeight = oldHeight + (SPECTRUM_HEIGHT-1-this->noiseLevel/maxBinSignal*SPECTRUM_HEIGHT - oldHeight) / NOISE_RENDER_FILTER_TIME_CONSTANT;
-        std::cout << "Setting line at " << SPECTRUM_POSITION.y+SPECTRUM_HEIGHT-newHeight << std::endl;
         this->noiseIndicatorShape.setPosition( SPECTRUM_POSITION+sf::Vector2f(-NOISE_LEVEL_OVERSHOOT, newHeight) );
+    }
+
+    // Note indicators
+    double oldX, newX;
+    for (size_t i = 0; i < this->noteShapes.size(); i++) {
+        oldX = this->noteShapes[i]->getPosition().x;
+        newX = this->noteFrequencies[i]/this->maxLoadedFrequency*SPECTRUM_WIDTH-NOTE_INDICATOR_WIDTH/2;
+        newX = oldX + (newX-oldX)/NOTE_INDICATOR_FILTER_TIME_CONSTANT;
+        this->noteShapes[i]->setPosition( SPECTRUM_POSITION+sf::Vector2f(newX, SPECTRUM_HEIGHT-NOTE_INDICATOR_HEIGHT) );
     }
 }
 
 
 void BrainSpectrum::draw(sf::RenderWindow &window) {
     // Draw the spectrum analyzer
+
+    // Analyzed note indicators
+    for (std::size_t i = 0; i < this->noteShapes.size(); i++) {
+        if (noteFrequencies[i] >= 0) // negative frequencies mean "note not found/do not draw"
+            window.draw( *(this->noteShapes[i]) );
+    }
+
+    // Spectral lines
     for (std::size_t i = 0; i < this->spectrumShapes.size(); i++) {
         window.draw( *(this->spectrumShapes[i]) );
     }
 
+    // Noise level indicator
     window.draw(this->noiseIndicatorShape);
 }
 
@@ -82,6 +111,9 @@ void BrainSpectrum::loadNewSpectrum(std::vector<double> frequencies, std::vector
     double binTopFrequency;
 
     this->binSignals.clear();
+
+    // Record the maximum frequency of the dataset (for graphics)
+    this->maxLoadedFrequency = *std::max_element(frequencies.begin(), frequencies.end())/2;
 
     // Binning logic
     for (unsigned int i = 0; i < NUM_SPECTRUM_BINS; i++) {
@@ -136,31 +168,66 @@ void BrainSpectrum::loadNewSpectrum(std::vector<double> frequencies, std::vector
         int strongestSignalIndex;
         int firstRemovedIndex;
         int lastRemovedIndex;
+        double strongestSignal;
         std::vector<double> peakSignals;
         std::vector<double> peakFrequencies;
 
-        for (unsigned int i = 0; i < numAnalyzedNotes; i++) {
+        double sumWeightedFrequencies;
+        double sumSignals;
+        double centerFrequency;
+        double noteIntensity;
+
+        for (unsigned int i = 0; i < NUM_ANALYZED_NOTES; i++) {
             // Find the current absolute maximum
             strongestSignalIndex = std::max_element( this->analyzedSignal.begin(), this->analyzedSignal.end() ) - this->analyzedSignal.begin(); // subtract begin from iterator to get index
+            strongestSignal = this->analyzedSignal[strongestSignalIndex];
 
-            // Determine the peak masking range around the maximum, respecting the range of valid vector indices
-            firstRemovedIndex = std::max(strongestSignalIndex - this->analysisMaskRadius, 0);
-            lastRemovedIndex = std::min( strongestSignalIndex + this->analysisMaskRadius, (int)(this->analyzedSignal.size()) );
+            this->noteFrequencies[i] = -1.0; // hide the notes by default
+            this->noteIntensities[i] = 0.0;
 
-            // collect data on the current signal peak, then flatten the signal to avoid reanalyzing the peak on the next pass
-            for (int j = firstRemovedIndex; j < lastRemovedIndex; j++) {
-                peakSignals.push_back(this->analyzedSignal[j]);
-                peakFrequencies.push_back(this->analyzedFrequencies[j]);
+            if (strongestSignal > this->noiseLevel) {
+                // Determine the peak masking range around the maximum, respecting the range of valid vector indices
+                firstRemovedIndex = std::max(strongestSignalIndex - this->analysisMaskRadius, 0);
+                lastRemovedIndex = std::min( strongestSignalIndex + this->analysisMaskRadius, (int)(this->analyzedSignal.size()) );
 
-                this->analyzedSignal[j] = this->noiseLevel;
+                // collect data on the current signal peak, then flatten the signal to avoid reanalyzing the peak on the next pass
+                peakSignals.clear();
+                peakFrequencies.clear();
+
+                for (int j = firstRemovedIndex; j < lastRemovedIndex; j++) { // intentionally leave last point out - gives more accurate results with discrete frequencies
+                    peakSignals.push_back(this->analyzedSignal[j]*this->analyzedSignal[j]); // convert amplitude to intensity
+                    peakFrequencies.push_back(this->analyzedFrequencies[j]);
+
+                    //std::cout << analyzedFrequencies[j] << " Hz  " << analyzedSignal[j] << " counts" << std::endl;
+
+                    this->analyzedSignal[j] = this->noiseLevel;
+                }
+
+                // refine the center frequency of the peak by taking the signal-weighted average of the frequencies
+                sumWeightedFrequencies = 0.0;
+                sumSignals = 0.0;
+
+                for (size_t j = 0; j < peakSignals.size(); j++) {
+                    sumWeightedFrequencies += peakFrequencies[j]*peakSignals[j];
+                    sumSignals += peakSignals[j];
+                }
+
+                centerFrequency = sumWeightedFrequencies/sumSignals;
+                this->noteFrequencies[i] = centerFrequency;
+
+                // calculate the peak intensity in decibels over noise
+                noteIntensity = sumSignals/(2*analysisMaskRadius)/this->noiseLevel;
+                noteIntensity = 10*log10(noteIntensity); // signals were already converted to intensities
+
+                this->noteIntensities[i] = noteIntensity;
+                std::cout << "Strong peak at " << centerFrequency << " Hz, SNR = " << noteIntensity << " dB" << std::endl;
             }
         }
 
         // Update the estimated noise level. Note that this scrambles the signal vector and must therefore be the last step of analysis!
         unsigned int noiseQuantileIndex = this->analyzedSignal.size()/NOISE_QUANTILE;
         std::nth_element( this->analyzedSignal.begin(), this->analyzedSignal.begin()+noiseQuantileIndex, this->analyzedSignal.end() );
-        this->noiseLevel = this->analyzedSignal[noiseQuantileIndex];
+        this->noiseLevel = this->analyzedSignal[noiseQuantileIndex]*this->noiseMultiplier;
 
-        //std::cout << "Noise level " << this->noiseLevel << std::endl;
     }
 }
