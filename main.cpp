@@ -16,7 +16,7 @@ const sf::Color BACKGROUND_COLOR = sf::Color(16,24,32,255);
 int main()
 {
     // Initialize SFML GUI
-    sf::RenderWindow window(sf::VideoMode(BrainConfig::INITIAL_WINDOW_WIDTH, BrainConfig::INITIAL_WINDOW_HEIGHT), "FFT works!");
+    sf::RenderWindow window(sf::VideoMode(BrainConfig::INITIAL_WINDOW_WIDTH, BrainConfig::INITIAL_WINDOW_HEIGHT), BrainConfig::TITLE_STRING);
     window.setFramerateLimit(BrainConfig::FRAME_RATE);
 
     if (!BrainRecorder::isAvailable()) {
@@ -30,6 +30,7 @@ int main()
 
     // Test a custom recorder
     BrainRecorder recorder;
+    std::cout << "Active recording device: " << recorder.getDevice() << std::endl;
     recorder.initialize();
 
     BrainSpectrum spectrum;
