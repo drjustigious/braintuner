@@ -8,6 +8,8 @@
 
 #include <SFML/Graphics.hpp>
 
+#include "BrainConfig.hpp"
+
 //*******************************
 // SPECTRUM ANALYZER COMPONENT
 //*******************************
@@ -19,17 +21,28 @@ class BrainSpectrum {
         void draw(sf::RenderWindow &window);
         void loadNewSpectrum(std::vector<double> frequencies, std::vector<double> magnitudes);
         void update(float dt);
+        void handleScroll(int x, int y, int windowWidth, int windowHeight, float delta);
+        void handleMouseMove(int x, int y, int windowWidth, int windowHeight);
         const unsigned int NUM_CHANNELS_ANALYZED = 8192; // number of analyzed positive-frequency channels (2.7 Hz resolution at 8192 channels)
+        bool active = true;
 
     private:
         std::vector<sf::RectangleShape*> spectrumShapes;
         std::vector<sf::RectangleShape*> noteShapes;
         sf::RectangleShape noiseIndicatorShape;
         sf::RectangleShape spectrumContainerShape;
+        sf::RectangleShape zoomRectangle;
+        sf::RectangleShape spectrumCursor;
         std::vector<double> binSignals;
 
-        const unsigned int CHANNELS_PER_BIN = 16; // how many analyzed channels are contained per rendered channel
+        const unsigned int CHANNELS_PER_BIN = 32; // how many analyzed channels are contained per rendered channel
         const unsigned int NUM_SPECTRUM_BINS = NUM_CHANNELS_ANALYZED/CHANNELS_PER_BIN; // number of rendered channels
+
+        int zoomLevel = 1;
+        const int MAX_ZOOM_LEVEL = 32;
+        int zoomWindowPosition = 0;
+        bool zoomRectangleVisible = false;
+        float zoomRectanglePosition = 0.0;
 
         const unsigned int SPECTRUM_WIDTH = 512; // drawn spectrum width in pixels
         const unsigned int SPECTRUM_HEIGHT = 256; // max drawn spectrum height in pixels
@@ -75,6 +88,10 @@ class BrainSpectrum {
         const float CONTAINER_OUTLINE_THICKNESS = 2;
         const sf::Color CONTAINER_FILL_COLOR = sf::Color(0,0,0,255);
         const sf::Color CONTAINER_OUTLINE_COLOR = sf::Color(96,128,160,255);
+
+        const sf::Color ZOOM_FILL_COLOR = sf::Color(48,64,80,255);
+        const sf::Color CURSOR_COLOR = sf::Color(96,128,160,255);
+        const float CURSOR_WIDTH = 2.0;
 };
 
 

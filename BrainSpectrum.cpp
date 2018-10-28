@@ -43,6 +43,18 @@ BrainSpectrum::BrainSpectrum() {
     this->spectrumContainerShape.setOutlineThickness( CONTAINER_OUTLINE_THICKNESS );
     this->spectrumContainerShape.setFillColor( CONTAINER_FILL_COLOR );
     this->spectrumContainerShape.setOutlineColor( CONTAINER_OUTLINE_COLOR );
+
+    // configure the zoom rectangle
+    this->zoomRectangle.setSize( sf::Vector2f(SPECTRUM_WIDTH/2, SPECTRUM_HEIGHT) );
+    this->zoomRectangle.setFillColor( ZOOM_FILL_COLOR );
+    this->zoomRectangle.setOutlineThickness(0);
+    this->zoomRectangle.setPosition(SPECTRUM_POSITION);
+
+    // configure the spectrum cursor
+    this->spectrumCursor.setSize( sf::Vector2f(CURSOR_WIDTH, SPECTRUM_HEIGHT) );
+    this->spectrumCursor.setFillColor( CURSOR_COLOR );
+    this->spectrumCursor.setOutlineThickness(0);
+    this->spectrumCursor.setPosition(SPECTRUM_POSITION);
 }
 
 
@@ -89,6 +101,12 @@ void BrainSpectrum::draw(sf::RenderWindow &window) {
 
     // Containers
     window.draw(this->spectrumContainerShape);
+
+    // Zoom rectangle
+    if (this->zoomRectangleVisible) {
+        window.draw(this->zoomRectangle);
+        window.draw(this->spectrumCursor);
+    }
 
     // Analyzed note indicators
     for (std::size_t i = 0; i < this->noteShapes.size(); i++) {
@@ -246,3 +264,66 @@ void BrainSpectrum::loadNewSpectrum(std::vector<double> frequencies, std::vector
 
     }
 }
+
+
+void BrainSpectrum::handleScroll(int rawX, int rawY, int windowWidth, int windowHeight, float delta) {
+    // Respond to mouse wheel movements
+
+    // correct the mouse coordinates in case the window has been resized
+    int x = (float)rawX/windowWidth*BrainConfig::INITIAL_WINDOW_WIDTH;
+    int y = (float)rawY/windowHeight*BrainConfig::INITIAL_WINDOW_HEIGHT;
+
+    // Zooming the spectrum?
+    if (x >= SPECTRUM_POSITION.x-SPECTRUM_CONTAINER_PAD &&
+        x <= SPECTRUM_POSITION.x+SPECTRUM_WIDTH+SPECTRUM_CONTAINER_PAD &&
+        y >= SPECTRUM_POSITION.y-SPECTRUM_CONTAINER_PAD &&
+        y <= SPECTRUM_POSITION.y+SPECTRUM_HEIGHT+SPECTRUM_CONTAINER_PAD) {
+
+        if (delta > 0) {
+            // Zoom in
+            this->zoomLevel = std::min(this->zoomLevel*2, MAX_ZOOM_LEVEL);
+            std::cout << "Zoom " << this->zoomLevel << "x" << std::endl;
+        }
+        else if (delta < 0) {
+            // Zoom out
+            this->zoomLevel = std::max(this->zoomLevel/2, 1);
+            std::cout << "Zoom " << this->zoomLevel << "x" << std::endl;
+        }
+    }
+}
+
+
+void BrainSpectrum::handleMouseMove(int rawX, int rawY, int windowWidth, int windowHeight) {
+    // Respond to mouse wheel movements
+
+    // correct the mouse coordinates in case the window has been resized
+    int x = (float)rawX/windowWidth*BrainConfig::INITIAL_WINDOW_WIDTH;
+    int y = (float)rawY/windowHeight*BrainConfig::INITIAL_WINDOW_HEIGHT;
+
+    std::cout << "Mouse at " << x << ", " << y << std::endl;
+
+    // On the spectrum?
+    if (x >= SPECTRUM_POSITION.x-SPECTRUM_CONTAINER_PAD &&
+        x <= SPECTRUM_POSITION.x+SPECTRUM_WIDTH+SPECTRUM_CONTAINER_PAD &&
+        y >= SPECTRUM_POSITION.y-SPECTRUM_CONTAINER_PAD &&
+        y <= SPECTRUM_POSITION.y+SPECTRUM_HEIGHT+SPECTRUM_CONTAINER_PAD) {
+
+        this->zoomRectangleVisible = true;
+
+        // Position the zoom rectangle around the mouse position
+        float newX = x-zoomRectangle.getSize().x/2;
+        newX = std::max(newX, SPECTRUM_POSITION.x);
+        newX = std::min(newX, SPECTRUM_POSITION.x+SPECTRUM_WIDTH/2);
+        this->zoomRectangle.setPosition( sf::Vector2f(newX, zoomRectangle.getPosition().y) );
+
+        // Position the spectrum cursor at the mouse position
+        newX = x-spectrumCursor.getSize().x/2;
+        newX = std::max(newX, SPECTRUM_POSITION.x);
+        newX = std::min(newX, SPECTRUM_POSITION.x+SPECTRUM_WIDTH);
+        this->spectrumCursor.setPosition( sf::Vector2f(newX, spectrumCursor.getPosition().y) );
+    }
+    else {
+        this->zoomRectangleVisible = false;
+    }
+}
+

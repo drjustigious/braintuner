@@ -48,12 +48,32 @@ int main()
                     window.close();
                     break;
                 }
+
                 case sf::Event::Resized: {
                     // The window was resized. Enforce 4:3 aspect ratio and minimum size.
                     unsigned int newHeight = std::max(event.size.height, BrainConfig::MINIMUM_WINDOW_HEIGHT);
                     window.setSize( sf::Vector2u(newHeight*4/3, newHeight) );
                     break;
                 }
+
+                case sf::Event::MouseWheelScrolled: {
+                    // Mouse wheel was used for scrolling or zooming
+                    if (event.mouseWheelScroll.wheel == sf::Mouse::VerticalWheel) {
+                        if (spectrum.active) {
+                            spectrum.handleScroll(event.mouseWheelScroll.x, event.mouseWheelScroll.y, window.getSize().x, window.getSize().y, event.mouseWheelScroll.delta);
+                        }
+                    }
+                    break;
+                }
+
+                case sf::Event::MouseMoved: {
+                    // Mouse was moved
+                    if (spectrum.active) {
+                        spectrum.handleMouseMove(event.mouseMove.x, event.mouseMove.y, window.getSize().x, window.getSize().y);
+                    }
+                    break;
+                }
+
                 default: {
                     break;
                 }
