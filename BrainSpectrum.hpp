@@ -22,6 +22,7 @@ class BrainSpectrum {
 
     private:
         std::vector<sf::RectangleShape*> spectrumShapes;
+        sf::RectangleShape noiseIndicatorShape;
         std::vector<double> binSignals;
 
         const unsigned int CHANNELS_PER_BIN = 16; // how many analyzed channels are contained per rendered channel
@@ -30,9 +31,11 @@ class BrainSpectrum {
         const unsigned int SPECTRUM_WIDTH = 512; // drawn spectrum width in pixels
         const unsigned int SPECTRUM_HEIGHT = 256; // max drawn spectrum height in pixels
         const sf::Vector2f SPECTRUM_POSITION = sf::Vector2f(0, 0); // origin of the drawn spectrum
+        const int NOISE_LEVEL_OVERSHOOT = 8; // how many pixels the noise level indicator extends to each side of the spectrum
 
         const float INITIAL_SIGNAL = 0.2; // initial signal level (for animations), range 0...1
-        const float RENDER_FILTER_TIME_CONSTANT = 15.0; // natural time constant of rendered signal's filter, in units of frame update time
+        const float SPECTRUM_RENDER_FILTER_TIME_CONSTANT = 15.0; // natural time constant of rendered signal's filter, in units of frame update time
+        const float NOISE_RENDER_FILTER_TIME_CONSTANT = 30.0; // natural time constant of rendered signal's filter, in units of frame update time
 
         enum BinningLogic {MEDIAN, MAXIMUM}; // different options for binning logic
         BinningLogic BINNING_LOGIC = MAXIMUM;
@@ -48,7 +51,9 @@ class BrainSpectrum {
         std::vector<double> analyzedSignal;
         std::vector<double> analyzedFrequencies;
         unsigned int numAnalyzedNotes = 3;
-        unsigned int analysisMaskRadius = 2; // disregard signal at this radius from each found maximum (assumed to belong to the same peak)
+        int analysisMaskRadius = 2; // disregard signal at this radius from each found maximum (assumed to belong to the same peak)
+        double noiseLevel = 0.0; // will be dynamically updated to approximate the noise ceiling
+        const unsigned int NOISE_QUANTILE = 16; // let this be N, then the noise level will be determined as the first N-quantile of the signal vector
 
 };
 
