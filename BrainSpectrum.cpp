@@ -55,6 +55,24 @@ BrainSpectrum::BrainSpectrum() {
     this->spectrumCursor.setFillColor( CURSOR_COLOR );
     this->spectrumCursor.setOutlineThickness(0);
     this->spectrumCursor.setPosition(SPECTRUM_POSITION);
+
+    // load the GUI font
+    if (!basicFont.loadFromFile("resources/calibri.ttf")) {
+        throw std::runtime_error("ERROR: Could not load the GUI font.");
+    }
+
+    // set up text elements
+    this->spectrumText.setFont(basicFont);
+    this->spectrumText.setString("f = 72 Hz, SNR = 12 dB");
+    this->spectrumText.setCharacterSize(12);
+    this->spectrumText.setFillColor( FONT_COLOR );
+    this->spectrumText.setPosition( SPECTRUM_POSITION + sf::Vector2f(0, SPECTRUM_HEIGHT+SPECTRUM_CONTAINER_PAD+SPECTRUM_TEXT_PAD) );
+
+    this->zoomText.setFont(basicFont);
+    this->zoomText.setString("1x");
+    this->zoomText.setCharacterSize(12);
+    this->zoomText.setFillColor( FONT_COLOR );
+    this->zoomText.setPosition( SPECTRUM_POSITION + sf::Vector2f(SPECTRUM_WIDTH-ZOOM_TEXT_HPAD, ZOOM_TEXT_VPAD) );
 }
 
 
@@ -121,6 +139,10 @@ void BrainSpectrum::draw(sf::RenderWindow &window) {
 
     // Noise level indicator
     window.draw(this->noiseIndicatorShape);
+
+    // Text elements
+    window.draw(this->spectrumText);
+    window.draw(this->zoomText);
 }
 
 
@@ -179,7 +201,14 @@ void BrainSpectrum::loadNewSpectrum(std::vector<double> frequencies, std::vector
     if (this->analysisPeriodCounter > ANALYSIS_PERIOD) {
         this->analysisPeriodCounter = 0;
 
-        std::cout << "Analyzing..." << std::endl;
+        //std::cout << "Analyzing..." << std::endl;
+
+        // Determine the frequency pointed at by the spectrum cursor
+        double curX = this->spectrumCursor.getPosition().x-SPECTRUM_POSITION.x;
+        double relativeCurX = curX/SPECTRUM_WIDTH;
+        //std::cout << "Relative cursor pos: " << relativeCurX*100 << "%" << std::endl;
+        this->cursorFrequency = zoomWindowPosition+relativeCurX*maxLoadedFrequency/zoomLevel;
+        bool cursorSignalUpdated = false;
 
         // Collect the actual signal portion to be analyzed
         this->analyzedSignal.clear();
@@ -188,6 +217,13 @@ void BrainSpectrum::loadNewSpectrum(std::vector<double> frequencies, std::vector
             if (frequencies[i] >= minAnalyzedFrequency && frequencies[i] <= maxAnalyzedFrequency)
                 this->analyzedSignal.push_back(magnitudes[i]);
                 this->analyzedFrequencies.push_back(frequencies[i]);
+
+                // update the cursor signal
+                if (!cursorSignalUpdated && frequencies[i] <= this->cursorFrequency) {
+                    this->cursorSignal = 20*log10(magnitudes[i]/this->noiseLevel); // this is actually the intensity SNR in dB
+                    cursorSignalUpdated = true;
+                }
+
         }
 
         //std::cout << "Max signal " << *std::max_element( this->analyzedSignal.begin(), this->analyzedSignal.end() ) << std::endl;
@@ -242,20 +278,29 @@ void BrainSpectrum::loadNewSpectrum(std::vector<double> frequencies, std::vector
                 }
 
                 // calculate the peak intensity in decibels over noise
-                noteIntensity = sumSignals/(2*analysisMaskRadius)/this->noiseLevel;
+                noteIntensity = sumSignals/(2*analysisMaskRadius)/(this->noiseLevel*this->noiseLevel); // noiseLevel^2 means noise intensity
                 noteIntensity = 10*log10(noteIntensity); // signals were already converted to intensities
 
                 this->noteIntensities[i] = noteIntensity;
                 if (noteIntensity >= minimumNoteSNR) {
                     centerFrequency = sumWeightedFrequencies/sumSignals;
                     this->noteFrequencies[i] = centerFrequency;
-                    std::cout << "Strong peak at " << centerFrequency << " Hz, SNR = " << noteIntensity << " dB" << std::endl;
+                    //std::cout << "Strong peak at " << centerFrequency << " Hz, SNR = " << noteIntensity << " dB" << std::endl;
                 }
                 else {
                     this->noteFrequencies[i] = -1.0;
                 }
             }
         }
+
+        // Update the numerical spectrum cursor data
+        std::stringstream ss;
+        ss << std::fixed;
+        ss.precision(0);
+        ss << "f = " << this->cursorFrequency << " Hz, ";
+        ss.precision(1);
+        ss << "SNR = " << this->cursorSignal << " dB";
+        this->spectrumText.setString( ss.str() );
 
         // Update the estimated noise level. Note that this scrambles the signal vector and must therefore be the last step of analysis!
         unsigned int noiseQuantileIndex = this->analyzedSignal.size()/NOISE_QUANTILE;
@@ -282,13 +327,24 @@ void BrainSpectrum::handleScroll(int rawX, int rawY, int windowWidth, int window
         if (delta > 0) {
             // Zoom in
             this->zoomLevel = std::min(this->zoomLevel*2, MAX_ZOOM_LEVEL);
-            std::cout << "Zoom " << this->zoomLevel << "x" << std::endl;
+            //std::cout << "Zoom " << this->zoomLevel << "x" << std::endl;
         }
         else if (delta < 0) {
             // Zoom out
             this->zoomLevel = std::max(this->zoomLevel/2, 1);
-            std::cout << "Zoom " << this->zoomLevel << "x" << std::endl;
+            //std::cout << "Zoom " << this->zoomLevel << "x" << std::endl;
         }
+
+        this->zoomWindowPosition = this->cursorFrequency-this->maxLoadedFrequency/2/this->zoomLevel;
+        this->zoomWindowPosition = std::max(this->zoomWindowPosition, 0);
+        this->zoomWindowPosition = std::min((double)(this->zoomWindowPosition), this->maxLoadedFrequency-this->maxLoadedFrequency/this->zoomLevel);
+
+        //std::cout << "Window position " << this->zoomWindowPosition << " Hz" << std::endl;
+
+        std::stringstream ss;
+        ss << this->zoomLevel;
+        this->zoomText.setString(ss.str()+"x");
+
     }
 }
 
@@ -299,8 +355,6 @@ void BrainSpectrum::handleMouseMove(int rawX, int rawY, int windowWidth, int win
     // correct the mouse coordinates in case the window has been resized
     int x = (float)rawX/windowWidth*BrainConfig::INITIAL_WINDOW_WIDTH;
     int y = (float)rawY/windowHeight*BrainConfig::INITIAL_WINDOW_HEIGHT;
-
-    std::cout << "Mouse at " << x << ", " << y << std::endl;
 
     // On the spectrum?
     if (x >= SPECTRUM_POSITION.x-SPECTRUM_CONTAINER_PAD &&

@@ -5,6 +5,9 @@
 #include <cassert>
 #include <iostream>
 #include <cmath>
+#include <stdexcept>
+#include <string>
+#include <sstream>
 
 #include <SFML/Graphics.hpp>
 
@@ -74,7 +77,7 @@ class BrainSpectrum {
         static const unsigned int NUM_ANALYZED_NOTES = 4;
         double noteFrequencies[NUM_ANALYZED_NOTES];
         double noteIntensities[NUM_ANALYZED_NOTES];
-        const float NOTE_INDICATOR_WIDTH = 2.0;
+        const float NOTE_INDICATOR_WIDTH = 4.0;
         const float NOTE_INDICATOR_HANG = 2; // distance between the bottoms of note indicators and the spectrum bottom
         const float NOTE_INDICATOR_HEIGHT = SPECTRUM_HEIGHT+NOTE_INDICATOR_HANG;
         const sf::Color NOTE_INDICATOR_COLOR = sf::Color(63,127,255,255);
@@ -92,6 +95,18 @@ class BrainSpectrum {
         const sf::Color ZOOM_FILL_COLOR = sf::Color(48,64,80,255);
         const sf::Color CURSOR_COLOR = sf::Color(96,128,160,255);
         const float CURSOR_WIDTH = 2.0;
+
+        sf::Font basicFont;
+        const sf::Color FONT_COLOR = sf::Color::White;
+
+        sf::Text spectrumText;
+        double cursorFrequency;
+        double cursorSignal;
+        const float SPECTRUM_TEXT_PAD = 4;
+
+        sf::Text zoomText;
+        const float ZOOM_TEXT_VPAD = 4;
+        const float ZOOM_TEXT_HPAD = 24;
 };
 
 
