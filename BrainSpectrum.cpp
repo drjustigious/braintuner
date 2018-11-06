@@ -3,8 +3,63 @@
 BrainSpectrum::BrainSpectrum() {
     // CONSTRUCTOR
 
-    // Set the primitive type for drawing
-    //this->spectrumLines.setPrimitiveType(sf::Lines);
+    // Generate the vector of theoretical note frequencies, an equal-tempered scale centered around the given A4 note
+    // and the vector of note names corresponding to those frequencies
+    double generatedFrequency;
+    std::stringstream generatedName;
+    int nameCounter = 0;
+    int octaveCounter = 0;
+
+    std::cout << "Generating equal-tempered scale around A4 = " << MIDDLE_A_FREQUENCY << " Hz" << std::endl;
+
+    for (int i = 0; i < NUM_THEORETICAL_NOTES; i++) {
+
+        // base theoretical notes on the modern equal temperament scale with 12 notes per octave
+        generatedFrequency = MIDDLE_A_FREQUENCY*pow(2, (i-49.0)/12.0);
+        theoreticalNoteFrequencies.push_back(generatedFrequency);
+
+        generatedName.str(""); // clear the generatedName stream
+
+        // the lowest note on a modern 88-key standard piano is A0
+        switch (nameCounter) {
+            case 0: generatedName << "A";
+                    break;
+            case 1: generatedName << "Bb";
+                    break;
+            case 2: generatedName << "B";
+                    break;
+            case 3: generatedName << "C";
+                    break;
+            case 4: generatedName << "C#";
+                    break;
+            case 5: generatedName << "D";
+                    break;
+            case 6: generatedName << "Eb";
+                    break;
+            case 7: generatedName << "E";
+                    break;
+            case 8: generatedName << "F";
+                    break;
+            case 9: generatedName << "F#";
+                    break;
+            case 10: generatedName << "G";
+                    break;
+            case 11: generatedName << "Ab";
+                    break;
+        }
+
+        generatedName << octaveCounter;
+
+        theoreticalNoteNames.push_back( generatedName.str() );
+
+        nameCounter++;
+        if (nameCounter >= 12) {
+            nameCounter = 0;
+            octaveCounter++;
+        }
+
+        std::cout << "  - " << generatedName.str() << ": " << generatedFrequency << " Hz" << std::endl;
+    }
 
     // create rectangle shapes for drawing the spectrum
     const float rectWidth = SPECTRUM_WIDTH/NUM_SPECTRUM_BINS;
@@ -285,7 +340,11 @@ void BrainSpectrum::loadNewSpectrum(std::vector<double> frequencies, std::vector
                 if (noteIntensity >= minimumNoteSNR) {
                     centerFrequency = sumWeightedFrequencies/sumSignals;
                     this->noteFrequencies[i] = centerFrequency;
-                    //std::cout << "Strong peak at " << centerFrequency << " Hz, SNR = " << noteIntensity << " dB" << std::endl;
+
+                    std::cout << std::endl << "Strong peak at " << centerFrequency << " Hz, SNR = " << noteIntensity << " dB" << std::endl;
+                    int closestIndex = getClosestNoteIndex(centerFrequency);
+                    std::cout << "  - Closest note: " << getNoteName(closestIndex) << std::endl;
+                    std::cout << "  - Tuning offset: " << getCentsBetweenTones(getNoteFrequency(closestIndex), centerFrequency) << " cents" << std::endl;
                 }
                 else {
                     this->noteFrequencies[i] = -1.0;
@@ -335,6 +394,7 @@ void BrainSpectrum::handleScroll(int rawX, int rawY, int windowWidth, int window
             //std::cout << "Zoom " << this->zoomLevel << "x" << std::endl;
         }
 
+        // Update zoomWindowPosition to the lowest frequency that should be visible in the spectrum window
         this->zoomWindowPosition = this->cursorFrequency-this->maxLoadedFrequency/2/this->zoomLevel;
         this->zoomWindowPosition = std::max(this->zoomWindowPosition, 0);
         this->zoomWindowPosition = std::min((double)(this->zoomWindowPosition), this->maxLoadedFrequency-this->maxLoadedFrequency/this->zoomLevel);
@@ -379,5 +439,42 @@ void BrainSpectrum::handleMouseMove(int rawX, int rawY, int windowWidth, int win
     else {
         this->zoomRectangleVisible = false;
     }
+}
+
+
+int BrainSpectrum::getClosestNoteIndex(double frequency) {
+    // Returns the index to theoreticalNoteFrequencies and theoreticalNoteNames that
+    // is closest to the given frequency
+
+    double frequencyDifference;
+    double minFrequencyDifference = 1e6;
+    int closestNoteIndex = 0;
+
+    for (unsigned int i = 0; i < theoreticalNoteFrequencies.size(); i++) {
+        frequencyDifference = abs( theoreticalNoteFrequencies[i]-frequency );
+
+        if (frequencyDifference < minFrequencyDifference) {
+            minFrequencyDifference = frequencyDifference;
+            closestNoteIndex = i;
+        }
+    }
+
+    return closestNoteIndex;
+}
+
+
+double BrainSpectrum::getCentsBetweenTones(double a, double b) {
+    // Returns the interval from frequency a to frequency b in cents
+    return 1200.0 * log2(b/a);
+}
+
+
+std::string BrainSpectrum::getNoteName(int noteIndex) {
+    return theoreticalNoteNames[noteIndex];
+}
+
+
+double BrainSpectrum::getNoteFrequency(int noteIndex) {
+    return theoreticalNoteFrequencies[noteIndex];
 }
 

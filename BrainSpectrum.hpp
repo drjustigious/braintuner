@@ -26,6 +26,10 @@ class BrainSpectrum {
         void update(float dt);
         void handleScroll(int x, int y, int windowWidth, int windowHeight, float delta);
         void handleMouseMove(int x, int y, int windowWidth, int windowHeight);
+        int getClosestNoteIndex(double frequency); // gives the index of the closest-matching note on the theoretical scale
+        std::string getNoteName(int noteIndex);
+        double getNoteFrequency(int noteIndex);
+        double getCentsBetweenTones(double a, double b);
         const unsigned int NUM_CHANNELS_ANALYZED = 8192; // number of analyzed positive-frequency channels (2.7 Hz resolution at 8192 channels)
         bool active = true;
 
@@ -82,7 +86,12 @@ class BrainSpectrum {
         const float NOTE_INDICATOR_HEIGHT = SPECTRUM_HEIGHT+NOTE_INDICATOR_HANG;
         const sf::Color NOTE_INDICATOR_COLOR = sf::Color(63,127,255,255);
         const float NOTE_INDICATOR_FILTER_TIME_CONSTANT = 15.0; // natural time constant for note indicator motion
-        double minimumNoteSNR = 30; // minimum signal-to-noise ratio at which notes are registered
+        double minimumNoteSNR = 25; // minimum signal-to-noise ratio (in dB) at which notes are registered
+
+        const double MIDDLE_A_FREQUENCY = 440.0; // defines the tuning of the equal-tempered scale to which analysis is compared
+        const int NUM_THEORETICAL_NOTES = 88; // number of notes on the theoretical scale
+        std::vector<double> theoreticalNoteFrequencies; // will be filled with the eq-temp scale by class constructor
+        std::vector<std::string> theoreticalNoteNames; // will be filled with note names like "C#2" by class constructor
 
         const unsigned int NOISE_QUANTILE = 16; // let this be N, then the noise level will be determined as the first N-quantile of the signal vector...
         double noiseMultiplier = 2.5;      // ...multiplied by this constant
