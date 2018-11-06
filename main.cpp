@@ -15,6 +15,7 @@ const sf::Color BACKGROUND_COLOR = sf::Color(16,24,32,255);
 
 int main()
 {
+    std::cout << BrainConfig::TITLE_STRING << std::endl << "---" << std::endl;
     // Initialize SFML GUI
     sf::RenderWindow window(sf::VideoMode(BrainConfig::INITIAL_WINDOW_WIDTH, BrainConfig::INITIAL_WINDOW_HEIGHT), BrainConfig::TITLE_STRING);
     window.setFramerateLimit(BrainConfig::FRAME_RATE);
@@ -25,12 +26,17 @@ int main()
         return 0;
     }
     else {
-        std::cout << "Initializing audio recording device..." << std::endl;
+        std::cout << "Initializing audio recorder..." << std::endl;
+        std::cout << "Available recording devices:" << std::endl;
+        std::vector<std::string> availableDevices = sf::SoundRecorder::getAvailableDevices();
+        for (unsigned int i = 0; i < availableDevices.size(); i++) {
+            std::cout << "  - " << availableDevices[i] << std::endl;
+        }
     }
 
     // Test a custom recorder
     BrainRecorder recorder;
-    std::cout << "Active recording device: " << recorder.getDevice() << std::endl;
+    std::cout << "Active recording device:" << std::endl << "  - " << recorder.getDevice() << std::endl;
     recorder.initialize();
 
     BrainSpectrum spectrum;
